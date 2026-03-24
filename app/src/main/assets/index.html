@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>도형 기억 게임</title>
+<style>
+  :root {
+    --teal: #4ECDC4;
+    --teal-light: #a8edea;
+    --bg: #f0f4f8;
+    --white: #ffffff;
+    --gray: #c0c8d0;
+    --gray-dark: #7a8a9a;
+    --text: #2d3a45;
+    --inactive: #dde3e9;
+    --shadow: 0 4px 16px rgba(78,205,196,0.13);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width:100%; height:100%; background:var(--bg); font-family:'Apple SD Gothic Neo','Noto Sans KR',sans-serif; overflow:hidden; color:var(--text); }
+  .screen { display:none; width:100%; height:100%; }
+  .screen.active { display:flex; }
+
+  /* TITLE */
+  #titleScreen { flex-direction:column; align-items:center; justify-content:center; gap:32px; background:linear-gradient(135deg,#e8f8f7 0%,#f0f4f8 100%); }
+  .title-shapes { display:flex; gap:16px; margin-bottom:8px; }
+  .ts { width:44px; height:44px; background:var(--teal); opacity:0.85; border-radius:6px; }
+  .ts.tri { clip-path:polygon(50% 0%,0% 100%,100% 100%); border-radius:0; }
+  .ts.circle { border-radius:50%; }
+  .ts.star { clip-path:polygon(50% 0%,61% 35%,98% 35%,68% 57%,79% 91%,50% 70%,21% 91%,32% 57%,2% 35%,39% 35%); border-radius:0; }
+  .title-text { font-size:28px; font-weight:800; color:var(--text); letter-spacing:-1px; }
+  .title-sub { font-size:14px; color:var(--gray-dark); }
+  .round-btns { display:flex; gap:20px; }
+  .round-btn { padding:18px 48px; border-radius:18px; border:none; font-size:20px; font-weight:700; cursor:pointer; transition:transform 0.13s,box-shadow 0.13s; box-shadow:var(--shadow); }
+  .round-btn.r1 { background:var(--teal); color:#fff; }
+  .round-btn.r2 { background:var(--white); color:var(--teal); border:2.5px solid var(--teal); }
+  .round-btn:hover { transform:translateY(-2px); }
+  .round-btn:active { transform:scale(0.97); }
+
+  /* GAME */
+  #gameScreen { flex-direction:row; height:100%; }
+
+  /* LEFT */
+  .left-panel { width:220px; min-width:170px; background:var(--white); border-right:1.5px solid #e0e8ef; display:flex; flex-direction:column; align-items:center; padding:12px 8px; gap:8px; overflow-y:auto; }
+  .panel-title { font-size:12px; font-weight:700; color:var(--gray-dark); letter-spacing:1px; margin-bottom:4px; align-self:flex-start; padding-left:4px; }
+  .shape-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; width:100%; }
+  .shape-item { aspect-ratio:1; display:flex; align-items:center; justify-content:center; border-radius:10px; cursor:pointer; border:2.5px solid transparent; background:var(--bg); transition:border-color 0.15s,background 0.15s,transform 0.1s; padding:6px; }
+  .shape-item:hover { background:var(--teal-light); transform:scale(1.06); }
+  .shape-item.blocked { opacity:0.4; pointer-events:none; }
+  .shape-item svg { width:100%; height:100%; }
+  .mini-shape-list { display:flex; flex-direction:column; gap:10px; width:100%; padding:4px; }
+  .mini-shape-item { display:flex; align-items:center; justify-content:center; height:60px; border-radius:12px; cursor:pointer; border:2.5px solid transparent; background:var(--bg); transition:border-color 0.15s,background 0.15s; padding:8px; }
+  .mini-shape-item:hover { background:var(--teal-light); }
+  .mini-shape-item.blocked { opacity:0.4; pointer-events:none; }
+  .mini-shape-item svg { width:44px; height:44px; }
+
+  /* MAIN */
+  .main-area { flex:1; display:flex; flex-direction:column; position:relative; overflow:hidden; }
+  .top-bar { display:flex; align-items:center; justify-content:space-between; padding:10px 18px 0 14px; min-height:44px; }
+  .exit-btn { background:var(--white); border:1.5px solid var(--gray); border-radius:10px; padding:7px 16px; font-size:13px; font-weight:600; color:var(--gray-dark); cursor:pointer; transition:background 0.13s,color 0.13s; }
+  .exit-btn:hover { background:#ffe0e0; border-color:#f08080; color:#c0392b; }
+  .round-label { font-size:14px; font-weight:700; color:var(--teal); }
+  .step-counter { font-size:13px; color:var(--gray-dark); }
+  .shape-display { flex:1; display:flex; align-items:center; justify-content:center; }
+  .current-shape-wrap { width:160px; height:160px; display:flex; align-items:center; justify-content:center; border-radius:28px; background:var(--white); box-shadow:var(--shadow); }
+  .empty-hint { font-size:14px; color:var(--gray); text-align:center; line-height:1.8; }
+  .next-btn-wrap { display:flex; justify-content:flex-end; padding:0 14px 14px 0; }
+  .next-btn { background:var(--teal); color:#fff; border:none; border-radius:14px; padding:12px 28px; font-size:16px; font-weight:700; cursor:default; opacity:0.35; pointer-events:none; transition:opacity 0.2s,transform 0.1s; box-shadow:var(--shadow); }
+  .next-btn.enabled { opacity:1; pointer-events:auto; cursor:pointer; }
+  .next-btn.enabled:hover { transform:translateY(-2px); }
+  .next-btn.enabled:active { transform:scale(0.97); }
+
+  /* RIGHT */
+  .right-panel { width:200px; min-width:160px; display:flex; flex-direction:column; align-items:stretch; justify-content:center; padding:12px 14px; gap:14px; border-left:1.5px solid #e0e8ef; background:var(--white); }
+  .choice-item { display:flex; align-items:center; gap:10px; border-radius:14px; padding:10px 14px; background:var(--inactive); border:2px solid transparent; transition:background 0.15s,border-color 0.15s; min-height:52px; }
+  .choice-item.lit { background:var(--teal-light); border-color:var(--teal); }
+  .choice-item.disabled { opacity:0.35; }
+  .choice-key { height:32px; background:var(--white); border:1.5px solid var(--gray); border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:700; color:var(--text); flex-shrink:0; box-shadow:0 2px 4px rgba(0,0,0,0.07); padding:0 8px; }
+  .choice-label { font-size:13px; color:var(--gray-dark); font-weight:600; line-height:1.3; }
+
+  /* MODAL */
+  .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.35); align-items:center; justify-content:center; z-index:100; }
+  .modal-overlay.show { display:flex; }
+  .modal-box { background:var(--white); border-radius:20px; padding:32px 36px; text-align:center; box-shadow:0 12px 40px rgba(0,0,0,0.18); max-width:320px; }
+  .modal-box h3 { font-size:18px; font-weight:800; margin-bottom:10px; }
+  .modal-box p { font-size:14px; color:var(--gray-dark); margin-bottom:24px; }
+  .modal-btns { display:flex; gap:12px; justify-content:center; }
+  .modal-btn { padding:10px 28px; border-radius:12px; border:none; font-size:15px; font-weight:700; cursor:pointer; transition:transform 0.1s; }
+  .modal-btn:active { transform:scale(0.96); }
+  .modal-btn.cancel { background:var(--inactive); color:var(--gray-dark); }
+  .modal-btn.confirm { background:var(--teal); color:#fff; }
+
+  @keyframes shapeIn { from{opacity:0;transform:scale(0.82);} to{opacity:1;transform:scale(1);} }
+  .shape-animate { animation:shapeIn 0.22s cubic-bezier(.34,1.56,.64,1) both; }
+</style>
+</head>
+<body>
+
+<div class="screen active" id="titleScreen">
+  <div style="display:flex;flex-direction:column;align-items:center;gap:12px;">
+    <div class="title-shapes">
+      <div class="ts tri"></div><div class="ts circle"></div><div class="ts star"></div>
+    </div>
+    <div class="title-text">도형 기억 게임</div>
+    <div class="title-sub">제시된 도형의 순서를 기억하세요</div>
+  </div>
+  <div class="round-btns">
+    <button class="round-btn r1" onclick="startGame(1)">1라운드</button>
+    <button class="round-btn r2" onclick="startGame(2)">2라운드</button>
+  </div>
+</div>
+
+<div class="screen" id="gameScreen">
+  <div class="left-panel" id="leftPanel">
+    <div class="panel-title">도형 선택</div>
+    <div id="shapeSelector"></div>
+  </div>
+  <div class="main-area">
+    <div class="top-bar">
+      <button class="exit-btn" onclick="showExitModal()">✕ 종료</button>
+      <div class="round-label" id="roundLabel">1라운드</div>
+      <div class="step-counter" id="stepCounter"></div>
+    </div>
+    <div class="shape-display">
+      <div class="current-shape-wrap" id="currentShapeWrap">
+        <div class="empty-hint" id="emptyHint">왼쪽에서<br>도형을 선택하세요</div>
+        <svg id="currentShapeSVG" viewBox="0 0 100 100" style="display:none;width:110px;height:110px;"></svg>
+      </div>
+    </div>
+    <div class="next-btn-wrap">
+      <button class="next-btn" id="nextBtn" onclick="goNext()">다음 ▶</button>
+    </div>
+  </div>
+  <div class="right-panel" id="rightPanel"></div>
+</div>
+
+<div class="modal-overlay" id="exitModal">
+  <div class="modal-box">
+    <h3>게임 종료</h3>
+    <p>첫 화면으로 돌아가시겠습니까?</p>
+    <div class="modal-btns">
+      <button class="modal-btn cancel" onclick="hideExitModal()">계속하기</button>
+      <button class="modal-btn confirm" onclick="exitGame()">종료</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const SHAPES = [
+  { id:'triangle',  svg:`<polygon points="50,8 96,92 4,92" fill="#4ECDC4"/>` },
+  { id:'circle',    svg:`<circle cx="50" cy="50" r="44" fill="#4ECDC4"/>` },
+  { id:'square',    svg:`<rect x="6" y="6" width="88" height="88" fill="#4ECDC4"/>` },
+  { id:'trapezoid', svg:`<polygon points="20,85 80,85 92,15 8,15" fill="#4ECDC4"/>` },
+  { id:'hourglass', svg:`<path d="M20,10 Q50,50 80,10 L80,90 Q50,50 20,90 Z" fill="#4ECDC4"/>` },
+  { id:'gem',       svg:`<polygon points="50,5 90,30 90,65 50,95 10,65 10,30" fill="#4ECDC4"/>` },
+  { id:'diamond',   svg:`<polygon points="50,5 95,50 50,95 5,50" fill="#4ECDC4"/>` },
+  { id:'bowtie',    svg:`<path d="M5,20 Q50,50 95,20 L95,80 Q50,50 5,80 Z" fill="#4ECDC4"/>` },
+  { id:'star',      svg:`<polygon points="50,5 61,35 95,35 68,57 79,91 50,70 21,91 32,57 5,35 39,35" fill="#4ECDC4"/>` },
+  { id:'puzzle',    svg:`<rect x="5" y="5" width="45" height="45" fill="#4ECDC4"/><rect x="50" y="50" width="45" height="45" fill="#4ECDC4"/>` },
+  { id:'arrows2',   svg:`<polygon points="25,5 45,5 30,95 10,95" fill="#4ECDC4"/><polygon points="55,5 75,5 60,95 40,95" fill="#4ECDC4"/>` },
+  { id:'pyramid',   svg:`<rect x="20" y="70" width="60" height="22" fill="#4ECDC4"/><rect x="28" y="52" width="44" height="20" fill="#4ECDC4"/><rect x="34" y="34" width="32" height="20" fill="#4ECDC4"/><polygon points="50,5 66,36 34,36" fill="#4ECDC4"/>` },
+  { id:'doubletri', svg:`<polygon points="50,5 95,50 5,50" fill="#4ECDC4"/><polygon points="50,50 95,95 5,95" fill="#4ECDC4"/>` },
+  { id:'flower',    svg:`<ellipse cx="50" cy="26" rx="12" ry="22" fill="#4ECDC4"/><ellipse cx="50" cy="74" rx="12" ry="22" fill="#4ECDC4"/><ellipse cx="26" cy="50" rx="22" ry="12" fill="#4ECDC4"/><ellipse cx="74" cy="50" rx="22" ry="12" fill="#4ECDC4"/>` },
+  { id:'crown',     svg:`<polygon points="10,85 10,30 30,55 50,10 70,55 90,30 90,85" fill="#4ECDC4"/>` },
+];
+
+let round    = 1;
+let sequence = [];   // 제시된 도형 id 목록
+let usedTypes= [];   // 등장한 고유 도형 종류 (최대 3)
+let waiting  = false;// true = 도형 제시 후 다음 버튼 대기 중
+
+function memSteps(){ return round === 1 ? 2 : 3; }
+function curStep() { return sequence.length - 1; }
+function isAnswerPhase(){ return sequence.length > 0 && curStep() >= memSteps(); }
+
+// 정답 자동 계산
+function computeCorrect(){
+  if (!isAnswerPhase()) return null;
+  const cur  = sequence[curStep()];
+  const two  = sequence[curStep() - 2];
+  if (round === 1) return cur === two ? 'same_2' : 'diff';
+  const three = sequence[curStep() - 3];
+  if (cur === two)   return 'same_2';
+  if (cur === three) return 'same_3';
+  return 'diff';
+}
+
+function startGame(r){
+  round=r; sequence=[]; usedTypes=[]; waiting=false;
+  document.getElementById('titleScreen').classList.remove('active');
+  document.getElementById('gameScreen').classList.add('active');
+  document.getElementById('roundLabel').textContent = r+'라운드';
+  document.getElementById('stepCounter').textContent = '';
+  document.getElementById('currentShapeSVG').style.display = 'none';
+  document.getElementById('emptyHint').style.display = '';
+  buildShapeSelector(); renderChoices(); updateNextBtn();
+}
+
+function exitGame(){
+  hideExitModal();
+  document.getElementById('gameScreen').classList.remove('active');
+  document.getElementById('titleScreen').classList.add('active');
+}
+
+// ── 도형 클릭 = 도형 제시 ──────────────────────────────────
+function selectShape(id){
+  if (waiting) return; // 다음 버튼 누르기 전엔 선택 불가
+
+  sequence.push(id);
+  if (!usedTypes.includes(id)) usedTypes.push(id);
+  waiting = true;
+
+  // 중앙 도형 표시
+  const shape = SHAPES.find(x => x.id === id);
+  const svg   = document.getElementById('currentShapeSVG');
+  svg.innerHTML = shape.svg;
+  svg.style.display = '';
+  document.getElementById('emptyHint').style.display = 'none';
+  const wrap = document.getElementById('currentShapeWrap');
+  wrap.classList.remove('shape-animate');
+  void wrap.offsetWidth;
+  wrap.classList.add('shape-animate');
+  document.getElementById('stepCounter').textContent = sequence.length + '번째';
+
+  // 정답 선택지 자동 점등 + 다음 버튼 활성화
+  buildShapeSelector();
+  renderChoices();
+  updateNextBtn();
+}
+
+// ── 다음 버튼 ─────────────────────────────────────────────
+function goNext(){
+  waiting = false;
+  buildShapeSelector();
+  renderChoices();
+  updateNextBtn();
+}
+
+// ── 왼쪽 패널 ─────────────────────────────────────────────
+function buildShapeSelector(){
+  const panel = document.getElementById('shapeSelector');
+  panel.innerHTML = '';
+  const blocked = waiting;
+
+  if (usedTypes.length < 3){
+    const grid = document.createElement('div');
+    grid.className = 'shape-grid';
+    SHAPES.forEach(s => {
+      const item = document.createElement('div');
+      item.className = 'shape-item' + (blocked ? ' blocked' : '');
+      item.innerHTML = `<svg viewBox="0 0 100 100">${s.svg}</svg>`;
+      if (!blocked) item.onclick = () => selectShape(s.id);
+      grid.appendChild(item);
+    });
+    panel.appendChild(grid);
+  } else {
+    const list = document.createElement('div');
+    list.className = 'mini-shape-list';
+    usedTypes.forEach(id => {
+      const s = SHAPES.find(x => x.id === id);
+      const item = document.createElement('div');
+      item.className = 'mini-shape-item' + (blocked ? ' blocked' : '');
+      item.innerHTML = `<svg viewBox="0 0 100 100">${s.svg}</svg>`;
+      if (!blocked) item.onclick = () => selectShape(id);
+      list.appendChild(item);
+    });
+    panel.appendChild(list);
+  }
+}
+
+// ── 오른쪽 패널 (선택지는 읽기 전용, 정답만 자동 점등) ────────
+function renderChoices(){
+  const panel = document.getElementById('rightPanel');
+  panel.innerHTML = '';
+  const disabled = !isAnswerPhase();
+  const correctAns = computeCorrect(); // 도형 클릭 후 자동 계산된 정답
+
+  const defs = round === 1
+    ? [
+        { key:'SPACE BAR', label:'다름',             value:'diff'   },
+        { key:'←',         label:'같음',              value:'same_2' },
+      ]
+    : [
+        { key:'SPACE BAR', label:'다름 (둘 다 아님)',   value:'diff'   },
+        { key:'←',         label:'같음 (2번째 전)',     value:'same_2' },
+        { key:'→',         label:'같음 (3번째 전)',     value:'same_3' },
+      ];
+
+  defs.forEach(c => {
+    const div = document.createElement('div');
+    // waiting=true이고 정답과 일치하면 점등
+    const isLit = waiting && !disabled && c.value === correctAns;
+    div.className = 'choice-item' + (disabled ? ' disabled' : '') + (isLit ? ' lit' : '');
+    div.innerHTML = `<div class="choice-key">${c.key}</div><div class="choice-label">${c.label}</div>`;
+    panel.appendChild(div);
+  });
+}
+
+// ── 다음 버튼 활성화: 도형이 제시된 상태(waiting)이면 항상 활성 ──
+function updateNextBtn(){
+  const btn = document.getElementById('nextBtn');
+  btn.classList.toggle('enabled', waiting);
+}
+
+function showExitModal(){ document.getElementById('exitModal').classList.add('show'); }
+function hideExitModal(){ document.getElementById('exitModal').classList.remove('show'); }
+</script>
+</body>
+</html>
